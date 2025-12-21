@@ -72,7 +72,12 @@ export const SetupGuideModal: React.FC<SetupGuideModalProps> = ({ onClose }) => 
                             <ul className="list-disc pl-4 space-y-1">
                                 <li>Application Type: <strong>Web application</strong>.</li>
                                 <li>Authorized JavaScript origins:
-                                    <div className="mt-1 p-2 bg-black rounded border border-zinc-800 font-mono text-zinc-300">
+                                    <div className="mt-1 p-2 bg-black rounded border border-zinc-800 font-mono text-xs text-indigo-300">
+                                        http://localhost:3000
+                                    </div>
+                                </li>
+                                <li>Authorized redirect URIs:
+                                    <div className="mt-1 p-2 bg-black rounded border border-zinc-800 font-mono text-xs text-indigo-300">
                                         http://localhost:3000
                                     </div>
                                 </li>
@@ -80,7 +85,10 @@ export const SetupGuideModal: React.FC<SetupGuideModalProps> = ({ onClose }) => 
                             </ul>
                             <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex gap-3 text-red-400 text-xs mt-2">
                                 <ShieldAlert size={16} className="shrink-0" />
-                                <span>Ensure you hit "Save" properly. It takes ~5 mins for Google to update.</span>
+                                <div>
+                                    <p className="font-semibold">Deployment Tip:</p>
+                                    <p>If deploying to Vercel, remember to add your production URL (e.g., <code>https://your-app.vercel.app</code>) to both Origins and Redirect URIs above!</p>
+                                </div>
                             </div>
                         </div>
                     </section>
