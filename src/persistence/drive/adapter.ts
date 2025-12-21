@@ -1,4 +1,4 @@
-import { Project } from '@/features/board/domain/schema';
+import { Project, UserInfo } from '@/features/board/domain/schema';
 import { StorageAdapter } from '../types';
 
 // We need a way to pass the access token dynamically or set it.
@@ -116,6 +116,38 @@ export class DriveAdapter implements StorageAdapter {
                 const data = await res.json();
                 this.fileId = data.id;
             }
+        }
+    }
+
+    async getProjectMembers(): Promise<UserInfo[]> {
+        if (!this.accessToken) return [];
+
+        if (!this.fileId) {
+            this.fileId = await this.findFile();
+        }
+
+        if (!this.fileId) return [];
+
+        try {
+            const res = await fetch(`https://www.googleapis.com/drive/v3/files/${this.fileId}/permissions?fields=permissions(id,displayName,emailAddress,photoLink,role)`, {
+                headers: { Authorization: `Bearer ${this.accessToken}` },
+            });
+
+            if (!res.ok) return [];
+
+            const data = await res.json();
+            const permissions = data.permissions || [];
+
+            return permissions
+                .filter((p: any) => p.emailAddress && p.displayName) // Only users with email/name
+                .map((p: any) => ({
+                    name: p.displayName,
+                    email: p.emailAddress,
+                    picture: p.photoLink || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.displayName)}&background=random`
+                }));
+        } catch (e) {
+            console.error('Failed to fetch members', e);
+            return [];
         }
     }
 }

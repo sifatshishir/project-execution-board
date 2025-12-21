@@ -12,10 +12,11 @@ interface ColumnProps {
     status: TaskStatus;
     title: string;
     onEditTask: (task: Task) => void;
+    onAddTask: () => void;
     searchQuery: string;
 }
 
-export const Column: React.FC<ColumnProps> = ({ status, title, onEditTask, searchQuery }) => {
+export const Column: React.FC<ColumnProps> = ({ status, title, onEditTask, onAddTask, searchQuery }) => {
     const tasks = useProjectStore(
         useShallow((state) => {
             const allTasks = state.project.tasks.filter((t) => t.status === status);
@@ -28,7 +29,7 @@ export const Column: React.FC<ColumnProps> = ({ status, title, onEditTask, searc
             );
         })
     );
-    const addTask = useProjectStore((state) => state.addTask);
+    // const addTask = useProjectStore((state) => state.addTask); // We use onAddTask prop now
 
     const { setNodeRef, isOver } = useDroppable({
         id: status,
@@ -55,10 +56,7 @@ export const Column: React.FC<ColumnProps> = ({ status, title, onEditTask, searc
                 </SortableContext>
 
                 <button
-                    onClick={() => {
-                        const title = prompt('Task title:');
-                        if (title) addTask(title);
-                    }}
+                    onClick={onAddTask}
                     className="flex items-center gap-2 p-2 text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded-md transition-all mt-auto"
                 >
                     <Plus size={16} />
@@ -68,3 +66,4 @@ export const Column: React.FC<ColumnProps> = ({ status, title, onEditTask, searc
         </div>
     );
 };
+

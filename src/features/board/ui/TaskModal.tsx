@@ -1,30 +1,50 @@
-import React, { useState } from 'react';
-import { Task, TaskPriority, TaskStatus } from '../domain/schema';
-import { X, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Task, TaskPriority, TaskStatus, UserInfo } from '../domain/schema';
+import { X, Trash2, User as UserIcon } from 'lucide-react';
 
 interface TaskModalProps {
     task: Task;
+    projectMembers?: UserInfo[];
+    isCreating?: boolean;
+    initialStatus?: TaskStatus;
     onClose: () => void;
     onSave: (id: string, updates: Partial<Task>) => void;
     onDelete: (id: string) => void;
 }
 
-export const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onSave, onDelete }) => {
+export const TaskModal: React.FC<TaskModalProps> = ({
+    task,
+    projectMembers = [],
+    isCreating = false,
+    initialStatus,
+    onClose,
+    onSave,
+    onDelete
+}) => {
     const [title, setTitle] = useState(task.title);
     const [description, setDescription] = useState(task.description);
     const [estimate, setEstimate] = useState(task.estimate);
-    const [startDate, setStartDate] = React.useState(task.startDate ? new Date(task.startDate).toISOString().slice(0, 16) : '');
+    const [startDate, setStartDate] = useState(task.startDate ? new Date(task.startDate).toISOString().slice(0, 16) : '');
     const [priority, setPriority] = useState<TaskPriority>(task.priority);
-    const [status, setStatus] = useState<TaskStatus>(task.status);
+    const [status, setStatus] = useState<TaskStatus>(initialStatus || task.status);
+    const [assigneeEmail, setAssigneeEmail] = useState<string>(task.assignee?.email || '');
+
+    // Reset fields if switching between create/edit (though modal usually remounts)
+    useEffect(() => {
+        if (isCreating && initialStatus) setStatus(initialStatus);
+    }, [isCreating, initialStatus]);
 
     const handleSave = () => {
+        const selectedAssignee = projectMembers.find(m => m.email === assigneeEmail);
+
         onSave(task.id, {
             title,
             description,
             estimate,
             priority,
             status,
-            startDate: startDate ? new Date(startDate).getTime() : undefined
+            startDate: startDate ? new Date(startDate).getTime() : undefined,
+            assignee: selectedAssignee
         });
         onClose();
     };
@@ -48,25 +68,31 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onSave, onD
     const endTime = calculateEndTime();
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl p-6 flex flex-col gap-4">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl p-6 flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-card-foreground">Edit Task</h2>
+                    <h2 className="text-lg font-semibold text-card-foreground">
+                        {isCreating ? 'Create Task' : 'Edit Task'}
+                    </h2>
                     <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
                         <X size={20} />
                     </button>
                 </div>
 
                 <div className="space-y-4">
+                    {/* Title */}
                     <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Title</label>
                         <input
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             className="w-full bg-secondary/50 border border-input rounded-md p-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            placeholder="What needs to be done?"
+                            autoFocus
                         />
                     </div>
 
+                    {/* Status & Priority */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-medium text-muted-foreground mb-1">Status</label>
@@ -96,6 +122,42 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onSave, onD
                         </div>
                     </div>
 
+                    {/* People: Reporter & Assignee */}
+                    <div className="grid grid-cols-2 gap-4">
+                        {/* Reporter (Read Only) */}
+                        <div>
+                            <label className="block text-xs font-medium text-muted-foreground mb-1">Reporter</label>
+                            <div className="flex items-center gap-2 p-2 bg-secondary/30 rounded-md border border-transparent">
+                                <div className="w-5 h-5 rounded-full bg-muted border border-border flex items-center justify-center overflow-hidden shrink-0">
+                                    {task.createdBy?.picture ? (
+                                        <img src={task.createdBy.picture} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <UserIcon size={12} className="text-muted-foreground" />
+                                    )}
+                                </div>
+                                <span className="text-sm text-foreground truncate">{task.createdBy?.name || 'Unknown'}</span>
+                            </div>
+                        </div>
+
+                        {/* Assignee */}
+                        <div>
+                            <label className="block text-xs font-medium text-muted-foreground mb-1">Assignee</label>
+                            <select
+                                value={assigneeEmail}
+                                onChange={(e) => setAssigneeEmail(e.target.value)}
+                                className="w-full bg-secondary/50 border border-input rounded-md p-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            >
+                                <option value="">Unassigned</option>
+                                {projectMembers.map(member => (
+                                    <option key={member.email} value={member.email}>
+                                        {member.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Schedule */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-medium text-muted-foreground mb-1">Start Date</label>
@@ -118,6 +180,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onSave, onD
                         </div>
                     </div>
 
+                    {/* Description */}
                     <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Description</label>
                         <textarea
@@ -129,15 +192,26 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onSave, onD
                 </div>
 
                 <div className="flex items-center justify-between mt-4 border-t border-border pt-4">
-                    <button
-                        onClick={() => { onDelete(task.id); onClose(); }}
-                        className="flex items-center gap-2 text-destructive hover:text-destructive/80 text-sm px-3 py-2 rounded-md hover:bg-destructive/10 transition-colors"
-                    >
-                        <Trash2 size={16} /> Delete
-                    </button>
+                    {isCreating ? (
+                        <div></div> // Spacer
+                    ) : (
+                        <button
+                            onClick={() => { onDelete(task.id); onClose(); }}
+                            className="flex items-center gap-2 text-destructive hover:text-destructive/80 text-sm px-3 py-2 rounded-md hover:bg-destructive/10 transition-colors"
+                        >
+                            <Trash2 size={16} /> Delete
+                        </button>
+                    )}
+
                     <div className="flex gap-2">
                         <button onClick={onClose} className="px-4 py-2 text-muted-foreground hover:text-foreground text-sm">Cancel</button>
-                        <button onClick={handleSave} className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md text-sm font-medium transition-colors">Save Changes</button>
+                        <button
+                            onClick={handleSave}
+                            disabled={!title}
+                            className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isCreating ? 'Create Task' : 'Save Changes'}
+                        </button>
                     </div>
                 </div>
             </div>

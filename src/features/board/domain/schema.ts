@@ -18,6 +18,7 @@ export interface Task {
     estimate: string; // e.g., "2h", "1d"
     startDate?: number; // timestamp
     createdBy?: UserInfo;
+    assignee?: UserInfo;
     createdAt: number; // timestamp
     updatedAt: number; // timestamp
 }
@@ -29,6 +30,7 @@ export interface Project {
     createdAt: number;
     updatedAt: number;
     tasks: Task[];
+    members: UserInfo[];
     version: number;
 }
 
@@ -39,14 +41,19 @@ export const createInitialProject = (): Project => ({
     createdAt: Date.now(),
     updatedAt: Date.now(),
     tasks: [],
+    members: [
+        { name: 'Alice', email: 'alice@example.com', picture: 'https://ui-avatars.com/api/?name=Alice&background=random' },
+        { name: 'Bob', email: 'bob@example.com', picture: 'https://ui-avatars.com/api/?name=Bob&background=random' },
+        { name: 'Charlie', email: 'charlie@example.com', picture: 'https://ui-avatars.com/api/?name=Charlie&background=random' }
+    ],
     version: 1,
 });
 
-export const createTask = (title: string, user?: UserInfo): Task => ({
+export const createTask = (title: string, user?: UserInfo, status: TaskStatus = 'backlog'): Task => ({
     id: uuidv4(),
     title,
     description: '',
-    status: 'backlog',
+    status,
     priority: 'medium',
     estimate: '',
     startDate: undefined,
@@ -54,3 +61,4 @@ export const createTask = (title: string, user?: UserInfo): Task => ({
     createdAt: Date.now(),
     updatedAt: Date.now(),
 });
+
