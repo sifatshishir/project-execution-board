@@ -27,6 +27,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <script src="https://accounts.google.com/gsi/client" async defer></script>
         {children}
       </body>
     </html>
