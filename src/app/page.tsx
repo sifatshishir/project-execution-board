@@ -25,7 +25,7 @@ export default function Page() {
 
   if (!isClient) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-zinc-950 text-zinc-500">
+      <div className="h-screen w-full flex items-center justify-center bg-background text-muted-foreground">
         Initialising...
       </div>
     );
@@ -34,7 +34,7 @@ export default function Page() {
   // If we have auth and config, we are redirecting. Don't render anything else.
   if (isAuthenticated && googleClientId) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-zinc-950 text-zinc-500 animate-pulse">
+      <div className="h-screen w-full flex items-center justify-center bg-background text-muted-foreground animate-pulse">
         Redirecting to Dashboard...
       </div>
     );

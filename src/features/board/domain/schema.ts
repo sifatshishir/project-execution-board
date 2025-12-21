@@ -3,14 +3,21 @@ import { v4 as uuidv4 } from 'uuid';
 export type TaskStatus = 'backlog' | 'planned' | 'in-progress' | 'blocked' | 'done';
 export type TaskPriority = 'low' | 'medium' | 'high';
 
+export interface UserInfo {
+    name: string;
+    email: string;
+    picture: string;
+}
+
 export interface Task {
     id: string;
     title: string;
     description: string;
     status: TaskStatus;
     priority: TaskPriority;
-    estimate: string; // e.g., "2h", "1d" - kept as string for freeform simple logging or parsed later
+    estimate: string; // e.g., "2h", "1d"
     startDate?: number; // timestamp
+    createdBy?: UserInfo;
     createdAt: number; // timestamp
     updatedAt: number; // timestamp
 }
@@ -27,7 +34,7 @@ export interface Project {
 
 export const createInitialProject = (): Project => ({
     id: uuidv4(),
-    name: 'My Project',
+    name: 'Project Execution',
     description: 'Execution Board',
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -35,7 +42,7 @@ export const createInitialProject = (): Project => ({
     version: 1,
 });
 
-export const createTask = (title: string): Task => ({
+export const createTask = (title: string, user?: UserInfo): Task => ({
     id: uuidv4(),
     title,
     description: '',
@@ -43,6 +50,7 @@ export const createTask = (title: string): Task => ({
     priority: 'medium',
     estimate: '',
     startDate: undefined,
+    createdBy: user,
     createdAt: Date.now(),
     updatedAt: Date.now(),
 });

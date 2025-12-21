@@ -110,7 +110,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     },
 
     addTask: (title: string) => {
-        const task = createTask(title);
+        const user = useAuthStore.getState().user;
+        const task = createTask(title, user ? {
+            name: user.name,
+            email: user.email,
+            picture: user.picture
+        } : undefined);
+
         set((state) => {
             const newProject = {
                 ...state.project,
