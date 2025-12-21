@@ -93,7 +93,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit }) => {
                         {task.assignee ? (
                             <div className="w-6 h-6 rounded-full overflow-hidden border-2 border-card bg-muted ring-1 ring-border z-10" title={`Assigned to ${task.assignee.name}`}>
                                 {task.assignee.picture ? (
-                                    <img src={task.assignee.picture} alt={task.assignee.name} className="w-full h-full object-cover" />
+                                    <img src={task.assignee.picture} alt={task.assignee.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                 ) : (
                                     <div className="flex items-center justify-center w-full h-full bg-primary/10 text-primary text-[10px] font-bold">
                                         {task.assignee.name[0]}

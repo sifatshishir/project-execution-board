@@ -7,10 +7,12 @@ import { TaskModal } from './TaskModal';
 import { Task, TaskStatus, UserInfo } from '../domain/schema';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { TaskCard } from './TaskCard';
-import { LogOut, Search, User as UserIcon, Sun, Moon, Users, Plus, Filter, Check } from 'lucide-react';
+import { LogOut, Search, User as UserIcon, Sun, Moon, Users, Plus, Filter, Check, HelpCircle } from 'lucide-react';
 import clsx from 'clsx';
 import { useTheme } from 'next-themes';
 import { createTask } from '../domain/schema'; // We just need a dummy task generator for the modal
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 
 // Add Member Modal Component (Inline for simplicity, but could be separate)
 const AddMemberModal = ({ onClose, onAdd }: { onClose: () => void, onAdd: (u: UserInfo) => void }) => {
@@ -106,6 +108,7 @@ export const Board: React.FC = () => {
     const [searchQuery, setSearchQuery] = React.useState('');
     const [filterOpen, setFilterOpen] = React.useState(false);
     const [selectedUserEmails, setSelectedUserEmails] = React.useState<string[]>([]);
+    const [userMenuOpen, setUserMenuOpen] = React.useState(false);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -114,6 +117,32 @@ export const Board: React.FC = () => {
             },
         })
     );
+
+    const startTour = React.useCallback(() => {
+        const driverObj = driver({
+            showProgress: true,
+            steps: [
+                { popover: { title: 'Welcome to Your Board', description: 'Here is a quick tour to get you started.' } },
+                { element: '#board-columns', popover: { title: 'Task Columns', description: 'Manage your workflow across these status columns.' } },
+                { element: '#add-task-btn-backlog', popover: { title: 'Add Tasks', description: 'Click the + button in any column to create a new task.' } },
+                { element: '#search-filter-bar', popover: { title: 'Search & Filter', description: 'Find tasks by typing or filtering by assignee.' } },
+                { element: '#project-settings', popover: { title: 'Project Settings', description: 'Rename your project or upload a logo here.' } },
+                { element: '#user-menu-btn', popover: { title: 'User Menu', description: 'Access tutorials and other settings here.' } },
+            ]
+        });
+        driverObj.drive();
+    }, []);
+
+    // Auto-start tour for new users
+    React.useEffect(() => {
+        const hasSeenTour = localStorage.getItem('hasSeenTour_v1');
+        if (!hasSeenTour) {
+            setTimeout(() => {
+                startTour();
+                localStorage.setItem('hasSeenTour_v1', 'true');
+            }, 1000);
+        }
+    }, [startTour]);
 
     React.useEffect(() => {
         loadFromLocal();
@@ -303,19 +332,53 @@ export const Board: React.FC = () => {
                                 {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
                             </button>
 
-                            <div className="flex flex-col items-end">
-                                <span className="text-foreground font-medium">{user?.name}</span>
-                            </div>
-                            <div className="w-8 h-8 rounded-full bg-secondary border border-border overflow-hidden">
-                                {user?.picture ? (
-                                    <img src={user.picture} alt="User" referrerPolicy="no-referrer" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                                        <UserIcon size={16} />
+                            {/* User Menu */}
+                            <div className="relative">
+                                <button
+                                    id="user-menu-btn"
+                                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                                    className="flex items-center gap-3 hover:bg-secondary/50 p-1.5 rounded-full pl-3 transition-colors text-left"
+                                    title="User Menu"
+                                >
+                                    <div className="flex flex-col items-end">
+                                        <span className="text-foreground font-medium">{user?.name}</span>
                                     </div>
+                                    <div className="w-8 h-8 rounded-full bg-secondary border border-border overflow-hidden">
+                                        {user?.picture ? (
+                                            <img src={user.picture} alt="User" referrerPolicy="no-referrer" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                                <UserIcon size={16} />
+                                            </div>
+                                        )}
+                                    </div>
+                                </button>
+
+                                {userMenuOpen && (
+                                    <>
+                                        <div className="fixed inset-0 z-10" onClick={() => setUserMenuOpen(false)} />
+                                        <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-lg shadow-xl z-20 overflow-hidden py-1">
+                                            <button
+                                                onClick={() => {
+                                                    setUserMenuOpen(false);
+                                                    startTour();
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-secondary flex items-center gap-2"
+                                            >
+                                                <HelpCircle size={14} />
+                                                Show Tutorial
+                                            </button>
+                                        </div>
+                                    </>
                                 )}
                             </div>
-                            <button onClick={logout} className="p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-destructive" title="Logout">
+
+                            {/* Logout Button */}
+                            <button
+                                onClick={logout}
+                                className="p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-destructive"
+                                title="Logout"
+                            >
                                 <LogOut size={16} />
                             </button>
                         </div>

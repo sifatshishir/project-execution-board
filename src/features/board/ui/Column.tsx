@@ -15,9 +15,10 @@ interface ColumnProps {
     onAddTask: () => void;
     searchQuery: string;
     filterUsers: string[];
+    addBtnId?: string;
 }
 
-export const Column: React.FC<ColumnProps> = ({ status, title, onEditTask, onAddTask, searchQuery, filterUsers }) => {
+export const Column: React.FC<ColumnProps> = ({ status, title, onEditTask, onAddTask, searchQuery, filterUsers, addBtnId }) => {
     const tasks = useProjectStore(
         useShallow((state) => {
             const allTasks = state.project.tasks.filter((t) => t.status === status);
@@ -63,6 +64,7 @@ export const Column: React.FC<ColumnProps> = ({ status, title, onEditTask, onAdd
                 </SortableContext>
 
                 <button
+                    id={addBtnId}
                     onClick={onAddTask}
                     className="flex items-center gap-2 p-2 text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded-md transition-all mt-auto"
                 >
