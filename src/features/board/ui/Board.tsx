@@ -6,6 +6,7 @@ import { useAuthStore } from '@/auth/store';
 import { TaskModal } from './TaskModal';
 import { Task, TaskStatus, UserInfo } from '../domain/schema';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
 import { TaskCard } from './TaskCard';
 import { LogOut, Search, User as UserIcon, Sun, Moon, Users, Plus, Filter, Check, HelpCircle } from 'lucide-react';
 import clsx from 'clsx';
@@ -75,7 +76,7 @@ const AddMemberModal = ({ onClose, onAdd }: { onClose: () => void, onAdd: (u: Us
 };
 
 export const Board: React.FC = () => {
-    const { loadFromLocal, syncFromDrive, isSyncing, lastSync, updateTask, deleteTask, moveTask, updateProjectName, project, addTask, addMember } = useProjectStore(
+    const { loadFromLocal, syncFromDrive, isSyncing, lastSync, updateTask, deleteTask, moveTask, updateProjectName, project, addTask, addMember, reorderTasks } = useProjectStore(
         useShallow((state) => ({
             loadFromLocal: state.loadFromLocal,
             syncFromDrive: state.syncFromDrive,
@@ -87,7 +88,8 @@ export const Board: React.FC = () => {
             updateProjectName: state.updateProjectName,
             project: state.project,
             addTask: state.addTask,
-            addMember: state.addMember
+            addMember: state.addMember,
+            reorderTasks: state.reorderTasks
         }))
     );
     const { accessToken, logout } = useAuthStore(useShallow((state) => ({
@@ -121,13 +123,57 @@ export const Board: React.FC = () => {
     const startTour = React.useCallback(() => {
         const driverObj = driver({
             showProgress: true,
+            animate: true,
+            overlayColor: 'rgba(0, 0, 0, 0.75)',
+            popoverClass: 'driverjs-theme',
             steps: [
-                { popover: { title: 'Welcome to Your Board', description: 'Here is a quick tour to get you started.' } },
-                { element: '#board-columns', popover: { title: 'Task Columns', description: 'Manage your workflow across these status columns.' } },
-                { element: '#add-task-btn-backlog', popover: { title: 'Add Tasks', description: 'Click the + button in any column to create a new task.' } },
-                { element: '#search-filter-bar', popover: { title: 'Search & Filter', description: 'Find tasks by typing or filtering by assignee.' } },
-                { element: '#project-settings', popover: { title: 'Project Settings', description: 'Rename your project or upload a logo here.' } },
-                { element: '#user-menu-btn', popover: { title: 'User Menu', description: 'Access tutorials and other settings here.' } },
+                {
+                    popover: {
+                        title: '🚀 Welcome to Your Board',
+                        description: 'Manage your projects with ease. Let\'s show you around!',
+                        side: "bottom", align: 'center'
+                    }
+                },
+                {
+                    element: '#project-name-heading',
+                    popover: {
+                        title: '🏗️ Project Identity',
+                        description: 'This is your project workspace. Click the name to rename it or the icon to upload a brand logo.',
+                        side: "bottom", align: 'start'
+                    }
+                },
+                {
+                    element: '#columns-highlight',
+                    popover: {
+                        title: '📋 Core Workflow',
+                        description: 'Focus on your active "Planned" and "In Progress" tasks here.',
+                        side: "top", align: 'center'
+                    }
+                },
+                {
+                    element: '#add-task-btn-backlog',
+                    popover: {
+                        title: '➕ Quick Add',
+                        description: 'Ready to start something new? Click here to add a task to your backlog.',
+                        side: "bottom", align: 'center'
+                    }
+                },
+                {
+                    element: '#filter-toggle-btn',
+                    popover: {
+                        title: '🔍 Search & Filter',
+                        description: 'Click this filter button to isolate tasks for specific team members.',
+                        side: "top", align: 'center'
+                    }
+                },
+                {
+                    element: '#user-menu-btn',
+                    popover: {
+                        title: '👤 User Menu',
+                        description: 'Access your profile settings, re-run this tutorial, or sign out here.',
+                        side: "bottom", align: 'end'
+                    }
+                },
             ]
         });
         driverObj.drive();
@@ -161,12 +207,51 @@ export const Board: React.FC = () => {
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
 
-        if (over && active.id !== over.id) {
-            const status = over.id as Task['status'];
-            const validStatuses = ['backlog', 'planned', 'in-progress', 'blocked', 'done'];
+        if (!over) {
+            setActiveId(null);
+            return;
+        }
 
-            if (validStatuses.includes(status)) {
-                moveTask(active.id as string, status);
+        const activeId = active.id as string;
+        const overId = over.id as string;
+
+        // 1. Find the active task
+        const activeTask = project.tasks.find(t => t.id === activeId);
+        if (!activeTask) {
+            setActiveId(null);
+            return;
+        }
+
+        // 2. Determine if we are over a task or a column
+        const isOverTask = project.tasks.some(t => t.id === overId);
+        const overTask = isOverTask ? project.tasks.find(t => t.id === overId) : null;
+
+        // Valid statuses for columns
+        const validStatuses: TaskStatus[] = ['backlog', 'planned', 'in-progress', 'blocked', 'done'];
+        const isOverColumn = validStatuses.includes(overId as TaskStatus);
+
+        if (activeId !== overId) {
+            let newTasks = [...project.tasks];
+            const oldIndex = newTasks.findIndex(t => t.id === activeId);
+
+            if (isOverTask && overTask) {
+                // Moving over another task
+                const newIndex = newTasks.findIndex(t => t.id === overId);
+
+                // If moving across columns, update status too
+                if (activeTask.status !== overTask.status) {
+                    newTasks[oldIndex] = { ...activeTask, status: overTask.status, updatedAt: Date.now() };
+                }
+
+                newTasks = arrayMove(newTasks, oldIndex, newIndex);
+                reorderTasks(newTasks);
+            } else if (isOverColumn) {
+                // Moving over an empty column or column header
+                const newStatus = overId as TaskStatus;
+                if (activeTask.status !== newStatus) {
+                    newTasks[oldIndex] = { ...activeTask, status: newStatus, updatedAt: Date.now() };
+                    reorderTasks(newTasks);
+                }
             }
         }
         setActiveId(null);
@@ -229,6 +314,7 @@ export const Board: React.FC = () => {
                             />
                         ) : (
                             <h1
+                                id="project-name-heading"
                                 className="font-bold text-lg tracking-tight cursor-pointer hover:text-primary transition-colors border border-transparent hover:border-border rounded px-2 py-1 -ml-2 truncate text-foreground"
                                 onClick={() => { setTempName(project.name); setIsEditingName(true); }}
                                 title="Click to rename"
@@ -254,6 +340,7 @@ export const Board: React.FC = () => {
                         {/* Filter Dropdown */}
                         <div className="relative">
                             <button
+                                id="filter-toggle-btn"
                                 onClick={() => setFilterOpen(!filterOpen)}
                                 className={clsx(
                                     "p-2 rounded-full transition-colors border",
@@ -387,11 +474,13 @@ export const Board: React.FC = () => {
 
                 {/* Board Canvas */}
                 <main className="flex-1 overflow-x-auto overflow-y-hidden p-6 bg-background/50">
-                    <div className="flex h-full gap-6">
+                    <div className="flex h-full gap-6" id="board-columns">
                         {/* We pass setIsCreatingTask instead of prompt logic */}
-                        <Column status="backlog" title="Backlog" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('backlog')} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
-                        <Column status="planned" title="Planned" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('planned')} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
-                        <Column status="in-progress" title="In Progress" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('in-progress')} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
+                        <Column status="backlog" title="Backlog" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('backlog')} searchQuery={searchQuery} filterUsers={selectedUserEmails} addBtnId="add-task-btn-backlog" />
+                        <div id="columns-highlight" className="flex gap-6">
+                            <Column status="planned" title="Planned" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('planned')} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
+                            <Column status="in-progress" title="In Progress" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('in-progress')} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
+                        </div>
                         <Column status="blocked" title="Blocked" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('blocked')} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
                         <Column status="done" title="Done" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('done')} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
                     </div>

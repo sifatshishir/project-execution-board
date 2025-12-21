@@ -24,6 +24,7 @@ interface ProjectState {
     addMember: (member: UserInfo) => void;
     syncMembersFromDrive: () => Promise<void>;
     updateProjectLogo: (logo: string) => void;
+    reorderTasks: (newTasks: Task[]) => void;
 }
 
 // Debounced save to drive
@@ -232,6 +233,18 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
             const newProject = {
                 ...state.project,
                 logo: logo,
+                updatedAt: Date.now(),
+            };
+            localAdapter.saveProject(newProject);
+            debouncedSave(newProject);
+            return { project: newProject, isSyncing: true };
+        });
+    },
+    reorderTasks: (newTasks: Task[]) => {
+        set((state) => {
+            const newProject = {
+                ...state.project,
+                tasks: newTasks,
                 updatedAt: Date.now(),
             };
             localAdapter.saveProject(newProject);
