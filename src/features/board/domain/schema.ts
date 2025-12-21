@@ -31,6 +31,7 @@ export interface Project {
     updatedAt: number;
     tasks: Task[];
     members: UserInfo[];
+    logo?: string; // Base64
     version: number;
 }
 

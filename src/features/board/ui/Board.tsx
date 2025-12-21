@@ -7,7 +7,8 @@ import { TaskModal } from './TaskModal';
 import { Task, TaskStatus, UserInfo } from '../domain/schema';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { TaskCard } from './TaskCard';
-import { LogOut, Search, User as UserIcon, Sun, Moon, Users, Plus } from 'lucide-react';
+import { LogOut, Search, User as UserIcon, Sun, Moon, Users, Plus, Filter, Check } from 'lucide-react';
+import clsx from 'clsx';
 import { useTheme } from 'next-themes';
 import { createTask } from '../domain/schema'; // We just need a dummy task generator for the modal
 
@@ -103,6 +104,8 @@ export const Board: React.FC = () => {
     const [isEditingName, setIsEditingName] = React.useState(false);
     const [tempName, setTempName] = React.useState('');
     const [searchQuery, setSearchQuery] = React.useState('');
+    const [filterOpen, setFilterOpen] = React.useState(false);
+    const [selectedUserEmails, setSelectedUserEmails] = React.useState<string[]>([]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -162,7 +165,30 @@ export const Board: React.FC = () => {
                 {/* Header */}
                 <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-background/80 backdrop-blur-md z-10 shrink-0 gap-6">
                     <div className="flex items-center gap-4 min-w-[250px]">
-                        <div className="w-8 h-8 rounded bg-gradient-to-tr from-indigo-500 to-primary shrink-0" />
+                        <div className="relative group w-8 h-8 shrink-0">
+                            {project.logo ? (
+                                <img src={project.logo} alt="Project Logo" className="w-full h-full rounded object-cover border border-border" />
+                            ) : (
+                                <div className="w-full h-full rounded bg-gradient-to-tr from-indigo-500 to-primary" />
+                            )}
+                            {/* Hidden file input for logo */}
+                            <input
+                                type="file"
+                                accept="image/*"
+                                className="absolute inset-0 opacity-0 cursor-pointer"
+                                title="Upload Project Logo"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        const reader = new FileReader();
+                                        reader.onloadend = () => {
+                                            useProjectStore.getState().updateProjectLogo(reader.result as string);
+                                        };
+                                        reader.readAsDataURL(file);
+                                    }
+                                }}
+                            />
+                        </div>
                         {isEditingName ? (
                             <input
                                 autoFocus
@@ -183,17 +209,73 @@ export const Board: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Search Bar */}
-                    <div className="flex-1 max-w-xl mx-4">
-                        <div className="relative group">
+                    {/* Search Bar & Filter */}
+                    <div className="flex-1 max-w-xl mx-4 flex gap-2">
+                        <div className="relative group flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={16} />
                             <input
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Search tasks by title, creator, or assignee..."
+                                placeholder="Search tasks..."
                                 className="w-full bg-secondary/50 border border-input rounded-full pl-10 pr-4 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 transition-all placeholder:text-muted-foreground"
                             />
+                        </div>
+
+                        {/* Filter Dropdown */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setFilterOpen(!filterOpen)}
+                                className={clsx(
+                                    "p-2 rounded-full transition-colors border",
+                                    filterOpen || selectedUserEmails.length > 0 ? "bg-primary/10 border-primary text-primary" : "bg-secondary/50 border-input text-muted-foreground hover:text-foreground"
+                                )}
+                                title="Filter by User"
+                            >
+                                <Filter size={16} />
+                            </button>
+
+                            {filterOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-10" onClick={() => setFilterOpen(false)} />
+                                    <div className="absolute right-0 top-full mt-2 w-56 bg-card border border-border rounded-lg shadow-xl z-20 p-2 flex flex-col gap-1">
+                                        <div className="text-xs font-semibold text-muted-foreground px-2 py-1">Filter by Member</div>
+
+                                        {project.members.length === 0 && <div className="text-xs text-muted-foreground px-2 italic">No members found</div>}
+
+                                        {project.members.map(member => (
+                                            <button
+                                                key={member.email}
+                                                onClick={() => {
+                                                    setSelectedUserEmails(prev =>
+                                                        prev.includes(member.email)
+                                                            ? prev.filter(e => e !== member.email)
+                                                            : [...prev, member.email]
+                                                    );
+                                                }}
+                                                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-secondary text-sm text-left w-full"
+                                            >
+                                                <div className={clsx(
+                                                    "w-4 h-4 rounded border flex items-center justify-center transition-colors",
+                                                    selectedUserEmails.includes(member.email) ? "bg-primary border-primary" : "border-muted-foreground"
+                                                )}>
+                                                    {selectedUserEmails.includes(member.email) && <Check size={10} className="text-primary-foreground" />}
+                                                </div>
+                                                <span className="truncate flex-1">{member.name}</span>
+                                            </button>
+                                        ))}
+
+                                        {(selectedUserEmails.length > 0) && (
+                                            <button
+                                                onClick={() => setSelectedUserEmails([])}
+                                                className="mt-2 text-xs text-primary hover:underline text-center w-full py-1"
+                                            >
+                                                Clear Filter
+                                            </button>
+                                        )}
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -244,11 +326,11 @@ export const Board: React.FC = () => {
                 <main className="flex-1 overflow-x-auto overflow-y-hidden p-6 bg-background/50">
                     <div className="flex h-full gap-6">
                         {/* We pass setIsCreatingTask instead of prompt logic */}
-                        <Column status="backlog" title="Backlog" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('backlog')} searchQuery={searchQuery} />
-                        <Column status="planned" title="Planned" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('planned')} searchQuery={searchQuery} />
-                        <Column status="in-progress" title="In Progress" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('in-progress')} searchQuery={searchQuery} />
-                        <Column status="blocked" title="Blocked" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('blocked')} searchQuery={searchQuery} />
-                        <Column status="done" title="Done" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('done')} searchQuery={searchQuery} />
+                        <Column status="backlog" title="Backlog" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('backlog')} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
+                        <Column status="planned" title="Planned" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('planned')} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
+                        <Column status="in-progress" title="In Progress" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('in-progress')} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
+                        <Column status="blocked" title="Blocked" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('blocked')} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
+                        <Column status="done" title="Done" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('done')} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
                     </div>
                 </main>
 

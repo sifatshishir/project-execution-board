@@ -14,19 +14,26 @@ interface ColumnProps {
     onEditTask: (task: Task) => void;
     onAddTask: () => void;
     searchQuery: string;
+    filterUsers: string[];
 }
 
-export const Column: React.FC<ColumnProps> = ({ status, title, onEditTask, onAddTask, searchQuery }) => {
+export const Column: React.FC<ColumnProps> = ({ status, title, onEditTask, onAddTask, searchQuery, filterUsers }) => {
     const tasks = useProjectStore(
         useShallow((state) => {
             const allTasks = state.project.tasks.filter((t) => t.status === status);
-            if (!searchQuery) return allTasks;
 
-            const lowerQuery = searchQuery.toLowerCase();
-            return allTasks.filter(t =>
-                t.title.toLowerCase().includes(lowerQuery) ||
-                t.createdBy?.name.toLowerCase().includes(lowerQuery)
-            );
+            return allTasks.filter(t => {
+                // Search Filter
+                const matchesSearch = !searchQuery ||
+                    t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    t.createdBy?.name.toLowerCase().includes(searchQuery.toLowerCase());
+
+                // User Filter
+                const matchesUser = filterUsers.length === 0 ||
+                    (t.assignee && filterUsers.includes(t.assignee.email));
+
+                return matchesSearch && matchesUser;
+            });
         })
     );
     // const addTask = useProjectStore((state) => state.addTask); // We use onAddTask prop now

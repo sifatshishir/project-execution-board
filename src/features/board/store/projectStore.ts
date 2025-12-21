@@ -23,6 +23,7 @@ interface ProjectState {
     updateProjectName: (name: string) => void;
     addMember: (member: UserInfo) => void;
     syncMembersFromDrive: () => Promise<void>;
+    updateProjectLogo: (logo: string) => void;
 }
 
 // Debounced save to drive
@@ -224,5 +225,18 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
             console.error('Failed to sync members from drive', e);
             set({ isSyncing: false });
         }
+    },
+
+    updateProjectLogo: (logo: string) => {
+        set((state) => {
+            const newProject = {
+                ...state.project,
+                logo: logo,
+                updatedAt: Date.now(),
+            };
+            localAdapter.saveProject(newProject);
+            debouncedSave(newProject);
+            return { project: newProject, isSyncing: true };
+        });
     },
 }));

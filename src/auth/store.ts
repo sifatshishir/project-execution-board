@@ -17,11 +17,23 @@ interface AuthState {
     logout: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-    user: null,
-    accessToken: null,
-    isAuthenticated: false,
-    setUser: (user) => set({ user, isAuthenticated: !!user }),
-    setAccessToken: (token) => set({ accessToken: token }),
-    logout: () => set({ user: null, accessToken: null, isAuthenticated: false }),
-}));
+export const useAuthStore = create<AuthState>()(
+    persist(
+        (set) => ({
+            user: null,
+            accessToken: null,
+            isAuthenticated: false,
+            setUser: (user) => set({ user, isAuthenticated: !!user }),
+            setAccessToken: (token) => set({ accessToken: token }),
+            logout: () => set({ user: null, accessToken: null, isAuthenticated: false }),
+        }),
+        {
+            name: 'auth-storage',
+            partialize: (state) => ({
+                user: state.user,
+                accessToken: state.accessToken,
+                isAuthenticated: state.isAuthenticated
+            }),
+        }
+    )
+);

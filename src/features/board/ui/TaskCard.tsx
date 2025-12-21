@@ -11,6 +11,15 @@ interface TaskCardProps {
     onEdit?: (task: Task) => void;
 }
 
+// Define status colors map
+const statusColors = {
+    'backlog': 'border-l-slate-500',
+    'planned': 'border-l-blue-500',
+    'in-progress': 'border-l-orange-500',
+    'blocked': 'border-l-red-500',
+    'done': 'border-l-green-500',
+};
+
 export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit }) => {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: task.id,
@@ -18,8 +27,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit }) => {
 
     const style = {
         transform: CSS.Translate.toString(transform),
-        // Use unique color for border if not high priority or if desired
-        borderLeftColor: stringToColor(task.id + task.title),
+        // No inline border color, use tailwind classes map
     };
 
     const timeStatus = getTaskTimeStatus(task);
@@ -35,7 +43,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit }) => {
                 style={style}
                 className={clsx(
                     "opacity-50 flex flex-col gap-2 rounded-md bg-card p-3 shadow-sm border border-border h-[80px]",
-                    "border-l-4"
+                    "border-l-4", statusColors[task.status] || 'border-l-primary'
                 )}
             />
         );
@@ -50,21 +58,21 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit }) => {
             className={clsx(
                 'group relative flex flex-col gap-2 rounded-md bg-card p-3 shadow-sm border border-border cursor-grab active:cursor-grabbing backdrop-blur-sm touch-none',
                 'hover:bg-accent/50 hover:border-primary/20 transition-all',
-                'border-l-4'
+                'border-l-4', statusColors[task.status] || 'border-l-primary'
             )}
             onClick={() => onEdit?.(task)}
         >
             <div className="flex items-start justify-between">
                 <h3 className={clsx(
                     "text-sm font-medium transition-colors",
-                    isDone ? "text-muted-foreground line-through decoration-muted-foreground/50" : "text-card-foreground group-hover:text-foreground"
+                    isDone ? "text-muted-foreground line-through decoration-muted-foreground/50 opacity-70" : "text-card-foreground group-hover:text-foreground"
                 )}>
                     {task.title}
                 </h3>
             </div>
 
             {(task.description || task.estimate || task.assignee || task.createdBy) && (
-                <div className="flex items-center justify-between mt-2 min-h-[20px]">
+                <div className={clsx("flex items-center justify-between mt-2 min-h-[20px]", isDone && "opacity-50 grayscale transition-all")}>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                         {task.estimate && (
                             <div className={clsx(
