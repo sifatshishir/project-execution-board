@@ -12,7 +12,7 @@ interface ColumnProps {
     status: TaskStatus;
     title: string;
     onEditTask: (task: Task) => void;
-    onAddTask: () => void;
+    onAddTask?: () => void;
     searchQuery: string;
     filterUsers: string[];
     addBtnId?: string;
@@ -63,14 +63,16 @@ export const Column: React.FC<ColumnProps> = ({ status, title, onEditTask, onAdd
                     ))}
                 </SortableContext>
 
-                <button
-                    id={addBtnId}
-                    onClick={onAddTask}
-                    className="flex items-center gap-2 p-2 text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded-md transition-all mt-auto"
-                >
-                    <Plus size={16} />
-                    <span>Add Task</span>
-                </button>
+                {onAddTask && (
+                    <button
+                        id={addBtnId}
+                        onClick={onAddTask}
+                        className="flex items-center gap-2 p-2 text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded-md transition-all mt-auto"
+                    >
+                        <Plus size={16} />
+                        <span>Add Task</span>
+                    </button>
+                )}
             </div>
         </div>
     );

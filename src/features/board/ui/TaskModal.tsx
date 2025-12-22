@@ -10,6 +10,7 @@ interface TaskModalProps {
     onClose: () => void;
     onSave: (id: string, updates: Partial<Task>) => void;
     onDelete: (id: string) => void;
+    canEdit?: boolean;
 }
 
 export const TaskModal: React.FC<TaskModalProps> = ({
@@ -19,7 +20,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     initialStatus,
     onClose,
     onSave,
-    onDelete
+    onDelete,
+    canEdit = true
 }) => {
     const [title, setTitle] = useState(task.title);
     const [description, setDescription] = useState(task.description);
@@ -86,7 +88,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                         <input
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
-                            className="w-full bg-secondary/50 border border-input rounded-md p-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            disabled={!canEdit}
+                            className="w-full bg-secondary/50 border border-input rounded-md p-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-70"
                             placeholder="What needs to be done?"
                             autoFocus
                         />
@@ -99,7 +102,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                             <select
                                 value={status}
                                 onChange={(e) => setStatus(e.target.value as TaskStatus)}
-                                className="w-full bg-secondary/50 border border-input rounded-md p-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                disabled={!canEdit}
+                                className="w-full bg-secondary/50 border border-input rounded-md p-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-70"
                             >
                                 <option value="backlog">Backlog</option>
                                 <option value="planned">Planned</option>
@@ -113,7 +117,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                             <select
                                 value={priority}
                                 onChange={(e) => setPriority(e.target.value as TaskPriority)}
-                                className="w-full bg-secondary/50 border border-input rounded-md p-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                disabled={!canEdit}
+                                className="w-full bg-secondary/50 border border-input rounded-md p-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-70"
                             >
                                 <option value="low">Low</option>
                                 <option value="medium">Medium</option>
@@ -145,7 +150,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                             <select
                                 value={assigneeEmail}
                                 onChange={(e) => setAssigneeEmail(e.target.value)}
-                                className="w-full bg-secondary/50 border border-input rounded-md p-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                disabled={!canEdit}
+                                className="w-full bg-secondary/50 border border-input rounded-md p-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-70"
                             >
                                 <option value="">Unassigned</option>
                                 {projectMembers.map(member => (
@@ -163,7 +169,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                             <label className="block text-xs font-medium text-muted-foreground mb-1">Start Date</label>
                             <input
                                 type="datetime-local"
-                                className="w-full bg-secondary/50 border border-input rounded-md p-2 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                disabled={!canEdit}
+                                className="w-full bg-secondary/50 border border-input rounded-md p-2 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-70"
                                 value={startDate}
                                 onChange={(e) => setStartDate(e.target.value)}
                             />
@@ -171,9 +178,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                         <div>
                             <label className="block text-xs font-medium text-muted-foreground mb-1">Estimate (e.g. 2h)</label>
                             <input
-                                className="w-full bg-secondary/50 border border-input rounded-md p-2 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                className="w-full bg-secondary/50 border border-input rounded-md p-2 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-70"
                                 value={estimate}
                                 onChange={(e) => setEstimate(e.target.value)}
+                                disabled={!canEdit}
                                 placeholder="2h"
                             />
                             {endTime && <div className="text-xs text-primary mt-1">Ends at: {endTime}</div>}
@@ -186,7 +194,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                         <textarea
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            className="w-full h-24 bg-secondary/50 border border-input rounded-md p-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                            disabled={!canEdit}
+                            className="w-full h-24 bg-secondary/50 border border-input rounded-md p-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none disabled:opacity-70"
                         />
                     </div>
                 </div>
@@ -197,7 +206,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                     ) : (
                         <button
                             onClick={() => { onDelete(task.id); onClose(); }}
-                            className="flex items-center gap-2 text-destructive hover:text-destructive/80 text-sm px-3 py-2 rounded-md hover:bg-destructive/10 transition-colors"
+                            disabled={!canEdit}
+                            className="flex items-center gap-2 text-destructive hover:text-destructive/80 text-sm px-3 py-2 rounded-md hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                             <Trash2 size={16} /> Delete
                         </button>
@@ -205,13 +215,15 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
                     <div className="flex gap-2">
                         <button onClick={onClose} className="px-4 py-2 text-muted-foreground hover:text-foreground text-sm">Cancel</button>
-                        <button
-                            onClick={handleSave}
-                            disabled={!title}
-                            className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isCreating ? 'Create Task' : 'Save Changes'}
-                        </button>
+                        {canEdit && (
+                            <button
+                                onClick={handleSave}
+                                disabled={!title}
+                                className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isCreating ? 'Create Task' : 'Save Changes'}
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

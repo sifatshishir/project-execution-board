@@ -42,7 +42,7 @@ class LocalAdapter implements StorageAdapter {
         }
     }
 
-    async saveProject(project: Project): Promise<void> {
+    async saveProject(project: Project, id?: string | null): Promise<void> {
         if (typeof window === 'undefined') return;
         try {
             const db = await this.dbPromise;

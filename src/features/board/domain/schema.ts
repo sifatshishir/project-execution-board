@@ -31,7 +31,8 @@ export interface Project {
     updatedAt: number;
     tasks: Task[];
     members: UserInfo[];
-    logo?: string; // Base64
+    logo?: string; // Base64 (deprecated, keep for migration)
+    logoFileId?: string; // Drive File ID
     version: number;
 }
 
@@ -40,13 +41,9 @@ export const createInitialProject = (): Project => ({
     name: 'Project Execution',
     description: 'Execution Board',
     createdAt: Date.now(),
-    updatedAt: Date.now(),
+    updatedAt: 0, // Set to 0 so cloud data always overwrites initial state
     tasks: [],
-    members: [
-        { name: 'Alice', email: 'alice@example.com', picture: 'https://ui-avatars.com/api/?name=Alice&background=random' },
-        { name: 'Bob', email: 'bob@example.com', picture: 'https://ui-avatars.com/api/?name=Bob&background=random' },
-        { name: 'Charlie', email: 'charlie@example.com', picture: 'https://ui-avatars.com/api/?name=Charlie&background=random' }
-    ],
+    members: [],
     version: 1,
 });
 

@@ -9,10 +9,69 @@ const MIME_TYPE = 'application/json';
 
 export class DriveAdapter implements StorageAdapter {
     private accessToken: string | null = null;
-    private fileId: string | null = null;
 
     setAccessToken(token: string) {
         this.accessToken = token;
+    }
+
+    reset() {
+        // No-op for now as fileId is moved to store
+    }
+
+    async listProjects(): Promise<{ id: string; name: string; updatedAt: string }[]> {
+        if (!this.accessToken) return [];
+
+        try {
+            // Use name-based discovery to find all potential project files regardless of sharing origin
+            const q = `name contains 'project-execution-board' and trashed = false`;
+            const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,modifiedTime,mimeType,trashed)&orderBy=modifiedTime desc&pageSize=1000&supportsAllDrives=true&includeItemsFromAllDrives=true`, {
+                headers: { Authorization: `Bearer ${this.accessToken}` },
+            });
+
+            if (!res.ok) {
+                console.error('DriveAdapter: listProjects fetched failed', res.status);
+                return [];
+            }
+
+            const data = await res.json();
+            console.log('DriveAdapter: Raw files discovered:', data.files?.map((f: any) => ({
+                id: f.id,
+                name: f.name,
+                mimeType: f.mimeType,
+                trashed: f.trashed
+            })));
+
+            // Filter only JSON files or files ending in .json that aren't obviously non-projects
+            // Also explicitly EXCLUDE shortcuts to avoid duplicates if they point to the same file
+            const seenIds = new Set<string>();
+            const projects = (data.files || [])
+                .filter((f: any) => {
+                    if (seenIds.has(f.id)) return false; // Hard de-dupe by ID
+
+                    const isTrashed = f.trashed;
+                    const isShortcut = f.mimeType === 'application/vnd.google-apps.shortcut';
+                    const isJson = (f.name.toLowerCase().endsWith('.json') ||
+                        f.mimeType === MIME_TYPE ||
+                        f.mimeType === 'text/plain') && !isShortcut;
+
+                    if (isJson && !isTrashed) {
+                        seenIds.add(f.id);
+                        return true;
+                    }
+                    return false;
+                })
+                .map((f: any) => ({
+                    id: f.id,
+                    name: f.name,
+                    updatedAt: f.modifiedTime
+                }));
+
+            console.log('DriveAdapter: Final unique project files:', projects.length, projects.map((p: any) => p.name));
+            return projects;
+        } catch (e) {
+            console.error('DriveAdapter: listProjects error', e);
+            return [];
+        }
     }
 
     private async findFile(): Promise<string | null> {
@@ -23,7 +82,7 @@ export class DriveAdapter implements StorageAdapter {
 
         try {
             const q = `name = '${DRIVE_FILE_NAME}' and trashed = false`;
-            const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`, {
+            const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`, {
                 headers: { Authorization: `Bearer ${this.accessToken}` },
             });
 
@@ -46,44 +105,90 @@ export class DriveAdapter implements StorageAdapter {
         }
     }
 
-    async loadProject(id: string): Promise<Project | null> {
-        // Note: We ignore the passed ID in Drive search for MVP, assuming 1 project file.
-        // Ideally, we'd content-address or store multiple IDs.
-        // For this MVP, we look for "project-execution-board.json".
+    async deleteFile(fileId: string): Promise<void> {
+        if (!this.accessToken) throw new Error('No access token');
 
+        try {
+            const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${this.accessToken}` },
+            });
+
+            if (!res.ok && res.status !== 404) {
+                const error = await res.json().catch(() => ({ message: 'Unknown error' }));
+                console.error('DriveAdapter: Delete failed', error);
+            }
+        } catch (e) {
+            console.error('DriveAdapter: deleteFile error', e);
+        }
+    }
+
+    async loadProject(id: string): Promise<(Project & { canEdit?: boolean }) | null> {
         if (!this.accessToken) return null;
 
         try {
-            const existingFileId = await this.findFile();
-            if (!existingFileId) return null;
-            this.fileId = existingFileId;
+            const fileIdToLoad = id;
+            if (!fileIdToLoad) return null;
 
-            const res = await fetch(`https://www.googleapis.com/drive/v3/files/${existingFileId}?alt=media`, {
+            // Fetch metadata with capabilities to check for editor access
+            const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileIdToLoad}?fields=capabilities(canEdit)`, {
+                headers: { Authorization: `Bearer ${this.accessToken}` },
+            });
+            let canEdit = true;
+            if (metaRes.ok) {
+                const meta = await metaRes.json();
+                canEdit = meta.capabilities?.canEdit ?? true;
+            }
+
+            const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileIdToLoad}?alt=media`, {
                 headers: { Authorization: `Bearer ${this.accessToken}` },
             });
 
             if (!res.ok) return null;
-            return await res.json();
+            const project = await res.json();
+            return { ...project, canEdit };
         } catch (e) {
             console.error('Drive load error', e);
             return null;
         }
     }
 
-    async saveProject(project: Project): Promise<void> {
+    async uploadImage(blob: Blob, name: string): Promise<string> {
+        if (!this.accessToken) throw new Error('No access token');
+
+        const metadata = {
+            name: name,
+            mimeType: blob.type,
+        };
+
+        const form = new FormData();
+        form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+        form.append('file', blob);
+
+        const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${this.accessToken}` },
+            body: form,
+        });
+
+        if (!res.ok) {
+            const error = await res.json();
+            throw new Error(`Upload failed: ${JSON.stringify(error)}`);
+        }
+
+        const data = await res.json();
+        return data.id;
+    }
+
+    async saveProject(project: Project, forceFileId: string | null = null): Promise<string> {
         if (!this.accessToken) throw new Error('No access token');
 
         const fileContent = JSON.stringify(project, null, 2);
         const file = new Blob([fileContent], { type: MIME_TYPE });
 
-        // Check if file exists to determine update vs create
-        if (!this.fileId) {
-            this.fileId = await this.findFile();
-        }
-
-        if (this.fileId) {
-            // Update
-            await fetch(`https://www.googleapis.com/upload/drive/v3/files/${this.fileId}?uploadType=media`, {
+        if (forceFileId) {
+            // Update existing file
+            const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${forceFileId}?uploadType=media`, {
                 method: 'PATCH',
                 headers: {
                     Authorization: `Bearer ${this.accessToken}`,
@@ -91,12 +196,13 @@ export class DriveAdapter implements StorageAdapter {
                 },
                 body: file
             });
+            if (!res.ok) {
+                const error = await res.json().catch(() => ({ message: 'Unknown error' }));
+                throw new Error(`Update failed: ${JSON.stringify(error)}`);
+            }
+            return forceFileId;
         } else {
-            // Create
-            // Multipart upload to set metadata (name) + content is complex.
-            // Simple upload: Create metadata first, then upload content? Or multipart.
-            // Easiest for text files:
-
+            // Create new file
             const metadata = {
                 name: DRIVE_FILE_NAME,
                 mimeType: MIME_TYPE,
@@ -114,22 +220,20 @@ export class DriveAdapter implements StorageAdapter {
 
             if (res.ok) {
                 const data = await res.json();
-                this.fileId = data.id;
+                console.log('DriveAdapter: Successfully created new project file:', data.id);
+                return data.id;
+            } else {
+                const error = await res.json().catch(() => ({ message: 'Unknown error' }));
+                throw new Error(`Creation failed: ${JSON.stringify(error)}`);
             }
         }
     }
 
-    async getProjectMembers(): Promise<UserInfo[]> {
-        if (!this.accessToken) return [];
-
-        if (!this.fileId) {
-            this.fileId = await this.findFile();
-        }
-
-        if (!this.fileId) return [];
+    async getProjectMembers(fileId: string): Promise<UserInfo[]> {
+        if (!this.accessToken || !fileId) return [];
 
         try {
-            const res = await fetch(`https://www.googleapis.com/drive/v3/files/${this.fileId}/permissions?fields=permissions(id,displayName,emailAddress,photoLink,role)`, {
+            const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions?fields=permissions(id,displayName,emailAddress,photoLink,role)`, {
                 headers: { Authorization: `Bearer ${this.accessToken}` },
             });
 

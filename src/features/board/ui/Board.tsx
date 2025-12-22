@@ -8,12 +8,14 @@ import { Task, TaskStatus, UserInfo } from '../domain/schema';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { TaskCard } from './TaskCard';
-import { LogOut, Search, User as UserIcon, Sun, Moon, Users, Plus, Filter, Check, HelpCircle } from 'lucide-react';
+import { LogOut, Search, User as UserIcon, Sun, Moon, Users, Plus, Filter, Check, HelpCircle, Zap, Calendar, CheckCircle2, Circle, Clock, MoreHorizontal, User, Paperclip, MessageSquare, Trash2, Edit2, X, Download, Upload, ExternalLink, Settings } from 'lucide-react';
 import clsx from 'clsx';
 import { useTheme } from 'next-themes';
 import { createTask } from '../domain/schema'; // We just need a dummy task generator for the modal
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
+import { useDriveImage } from '@/hooks/useDriveImage';
+import { ShieldAlert } from 'lucide-react';
 
 // Add Member Modal Component (Inline for simplicity, but could be separate)
 const AddMemberModal = ({ onClose, onAdd }: { onClose: () => void, onAdd: (u: UserInfo) => void }) => {
@@ -75,8 +77,88 @@ const AddMemberModal = ({ onClose, onAdd }: { onClose: () => void, onAdd: (u: Us
     );
 };
 
+// Project Selection Modal
+const ProjectSelectionModal = ({ projects, onSelect, createNewProject, isFetchingNames }: { projects: { id: string; name: string; updatedAt: string }[], onSelect: (id: string) => void, createNewProject: () => void, isFetchingNames: boolean }) => {
+    return (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+            <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-8 flex flex-col gap-6 relative overflow-hidden">
+                {/* Progress Bar */}
+                {isFetchingNames && (
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-secondary/30">
+                        <div className="h-full bg-primary animate-[loading_2s_ease-in-out_infinite]" style={{ width: '30%' }} />
+                    </div>
+                )}
+
+                <div className="text-center space-y-2">
+                    <h3 className="text-2xl font-bold text-card-foreground">
+                        {isFetchingNames ? 'Scanning Projects...' : 'Select a Project'}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                        {isFetchingNames
+                            ? 'Fetching internal project details from your Drive...'
+                            : 'Multiple project files were found in your Google Drive. Which one would you like to load?'}
+                    </p>
+                </div>
+
+                <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto pr-2 min-h-[100px] justify-center">
+                    {isFetchingNames ? (
+                        <div className="flex flex-col items-center gap-4 py-8">
+                            <Zap size={24} className="text-primary animate-pulse" />
+                            <span className="text-xs text-muted-foreground uppercase tracking-widest animate-pulse">Updating list...</span>
+                        </div>
+                    ) : (
+                        projects.map((p) => (
+                            <button
+                                key={p.id}
+                                onClick={() => onSelect(p.id)}
+                                className="flex flex-col gap-1 p-4 rounded-xl border border-border bg-secondary/30 hover:bg-secondary/50 hover:border-primary/50 transition-all text-left group"
+                            >
+                                <span className="font-semibold text-foreground group-hover:text-primary transition-colors">{p.name || 'Untitled Board'}</span>
+                                <span className="text-xs text-muted-foreground italic">Last modified: {new Date(p.updatedAt).toLocaleString()}</span>
+                            </button>
+                        ))
+                    )}
+                </div>
+
+                {!isFetchingNames && (
+                    <>
+                        <div className="relative flex items-center gap-4 py-2">
+                            <div className="h-px bg-border flex-1"></div>
+                            <span className="text-[10px] text-muted-foreground uppercase tracking-widest">OR</span>
+                            <div className="h-px bg-border flex-1"></div>
+                        </div>
+
+                        <button
+                            onClick={createNewProject}
+                            className="flex items-center justify-center gap-2 w-full p-4 rounded-xl border border-dashed border-border hover:bg-secondary/50 hover:border-primary/50 transition-all text-sm font-medium text-muted-foreground hover:text-primary group"
+                        >
+                            <Plus size={18} className="group-hover:rotate-90 transition-transform" />
+                            Create New Project
+                        </button>
+                    </>
+                )}
+
+                <div className="pt-2 border-t border-border mt-2">
+                    <p className="text-[10px] text-center text-muted-foreground uppercase tracking-widest leading-relaxed">
+                        Tip: You can rename these files in Google Drive to distinguish them better.
+                    </p>
+                </div>
+            </div>
+
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                @keyframes loading {
+                    0% { transform: translateX(-100%); }
+                    50% { transform: translateX(100%); width: 40%; }
+                    100% { transform: translateX(300%); }
+                }
+            `}} />
+        </div>
+    );
+};
+
 export const Board: React.FC = () => {
-    const { loadFromLocal, syncFromDrive, isSyncing, lastSync, updateTask, deleteTask, moveTask, updateProjectName, project, addTask, addMember, reorderTasks } = useProjectStore(
+    const { loadFromLocal, syncFromDrive, isSyncing, lastSync, updateTask, deleteTask, moveTask, updateProjectName, project, addTask, addMember, reorderTasks, availableProjects, selectProject, createNewProject, reset, canEdit, isLoading, isFetchingNames } = useProjectStore(
         useShallow((state) => ({
             loadFromLocal: state.loadFromLocal,
             syncFromDrive: state.syncFromDrive,
@@ -89,7 +171,14 @@ export const Board: React.FC = () => {
             project: state.project,
             addTask: state.addTask,
             addMember: state.addMember,
-            reorderTasks: state.reorderTasks
+            reorderTasks: state.reorderTasks,
+            availableProjects: state.availableProjects,
+            selectProject: state.selectProject,
+            createNewProject: state.createNewProject,
+            reset: state.reset,
+            canEdit: state.canEdit,
+            isLoading: state.isLoading,
+            isFetchingNames: state.isFetchingNames
         }))
     );
     const { accessToken, logout } = useAuthStore(useShallow((state) => ({
@@ -200,6 +289,7 @@ export const Board: React.FC = () => {
         }
     }, [accessToken, syncFromDrive]);
 
+
     const handleDragStart = (event: DragStartEvent) => {
         setActiveId(event.active.id as string);
     };
@@ -273,6 +363,21 @@ export const Board: React.FC = () => {
         setIsCreatingTask(null);
     };
 
+    const { imageUrl: logoUrl, loading: logoLoading } = useDriveImage(
+        project.logoFileId,
+        project.logo // Fallback to base64 if it exists
+    );
+
+    if (isLoading) {
+        return (
+            <div className="h-screen w-full flex flex-col items-center justify-center bg-background text-foreground gap-4">
+                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                <div className="text-xl font-bold animate-pulse">Synchronizing with Google Drive...</div>
+                <p className="text-sm text-muted-foreground">This ensures your data is up-to-date across all browsers.</p>
+            </div>
+        );
+    }
+
     return (
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden transition-colors duration-300">
@@ -280,30 +385,34 @@ export const Board: React.FC = () => {
                 <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-background/80 backdrop-blur-md z-10 shrink-0 gap-6">
                     <div className="flex items-center gap-4 min-w-[250px]">
                         <div className="relative group w-8 h-8 shrink-0">
-                            {project.logo ? (
-                                <img src={project.logo} alt="Project Logo" className="w-full h-full rounded object-cover border border-border" />
+                            {logoUrl ? (
+                                <img
+                                    src={logoUrl}
+                                    alt="Project Logo"
+                                    className={clsx("w-full h-full rounded object-cover border border-border transition-opacity", logoLoading ? "opacity-30" : "opacity-100")}
+                                />
+                            ) : logoLoading ? (
+                                <div className="w-full h-full rounded bg-secondary animate-pulse" />
                             ) : (
                                 <div className="w-full h-full rounded bg-gradient-to-tr from-indigo-500 to-primary" />
                             )}
                             {/* Hidden file input for logo */}
-                            <input
-                                type="file"
-                                accept="image/*"
-                                className="absolute inset-0 opacity-0 cursor-pointer"
-                                title="Upload Project Logo"
-                                onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                        const reader = new FileReader();
-                                        reader.onloadend = () => {
-                                            useProjectStore.getState().updateProjectLogo(reader.result as string);
-                                        };
-                                        reader.readAsDataURL(file);
-                                    }
-                                }}
-                            />
+                            {canEdit && (
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                    title="Upload Project Logo"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                            useProjectStore.getState().updateProjectLogo(file);
+                                        }
+                                    }}
+                                />
+                            )}
                         </div>
-                        {isEditingName ? (
+                        {isEditingName && canEdit ? (
                             <input
                                 autoFocus
                                 className="bg-secondary border border-input rounded px-2 py-1 text-lg font-bold text-foreground focus:outline-none focus:border-primary w-full"
@@ -313,14 +422,24 @@ export const Board: React.FC = () => {
                                 onKeyDown={(e) => e.key === 'Enter' && handleNameSave()}
                             />
                         ) : (
-                            <h1
-                                id="project-name-heading"
-                                className="font-bold text-lg tracking-tight cursor-pointer hover:text-primary transition-colors border border-transparent hover:border-border rounded px-2 py-1 -ml-2 truncate text-foreground"
-                                onClick={() => { setTempName(project.name); setIsEditingName(true); }}
-                                title="Click to rename"
-                            >
-                                {project.name}
-                            </h1>
+                            <div className="flex flex-col">
+                                <h1
+                                    id="project-name-heading"
+                                    className={clsx(
+                                        "font-bold text-lg tracking-tight transition-colors border border-transparent rounded px-2 py-1 -ml-2 truncate text-foreground",
+                                        canEdit ? "cursor-pointer hover:text-primary hover:border-border" : "cursor-default"
+                                    )}
+                                    onClick={() => { if (canEdit) { setTempName(project.name); setIsEditingName(true); } }}
+                                    title={canEdit ? "Click to rename" : "Read-only access"}
+                                >
+                                    {project.name}
+                                </h1>
+                                {!canEdit && (
+                                    <span className="text-[10px] text-zinc-500 font-medium px-2 flex items-center gap-1 -mt-1 uppercase tracking-wider">
+                                        <ShieldAlert size={10} className="text-zinc-500" /> Read Only
+                                    </span>
+                                )}
+                            </div>
                         )}
                     </div>
 
@@ -402,14 +521,15 @@ export const Board: React.FC = () => {
                             <span>{lastSync ? 'Saved' : 'Synced'}</span>
                         )}
                         <div className="flex items-center gap-3 pl-6 border-l border-border">
-
-                            <button
-                                onClick={() => setShowMemberModal(true)}
-                                className="p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-foreground"
-                                title="Manage Members"
-                            >
-                                <Users size={16} />
-                            </button>
+                            {canEdit && (
+                                <button
+                                    onClick={() => setShowMemberModal(true)}
+                                    className="p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-foreground"
+                                    title="Manage Members"
+                                >
+                                    <Users size={16} />
+                                </button>
+                            )}
 
                             <button
                                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -462,7 +582,10 @@ export const Board: React.FC = () => {
 
                             {/* Logout Button */}
                             <button
-                                onClick={logout}
+                                onClick={() => {
+                                    reset();
+                                    logout();
+                                }}
                                 className="p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-destructive"
                                 title="Logout"
                             >
@@ -476,13 +599,13 @@ export const Board: React.FC = () => {
                 <main className="flex-1 overflow-x-auto overflow-y-hidden p-6 bg-background/50">
                     <div className="flex h-full gap-6" id="board-columns">
                         {/* We pass setIsCreatingTask instead of prompt logic */}
-                        <Column status="backlog" title="Backlog" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('backlog')} searchQuery={searchQuery} filterUsers={selectedUserEmails} addBtnId="add-task-btn-backlog" />
+                        <Column status="backlog" title="Backlog" onEditTask={setEditingTask} onAddTask={canEdit ? () => setIsCreatingTask('backlog') : undefined} searchQuery={searchQuery} filterUsers={selectedUserEmails} addBtnId="add-task-btn-backlog" />
                         <div id="columns-highlight" className="flex gap-6">
-                            <Column status="planned" title="Planned" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('planned')} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
-                            <Column status="in-progress" title="In Progress" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('in-progress')} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
+                            <Column status="planned" title="Planned" onEditTask={setEditingTask} onAddTask={canEdit ? () => setIsCreatingTask('planned') : undefined} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
+                            <Column status="in-progress" title="In Progress" onEditTask={setEditingTask} onAddTask={canEdit ? () => setIsCreatingTask('in-progress') : undefined} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
                         </div>
-                        <Column status="blocked" title="Blocked" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('blocked')} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
-                        <Column status="done" title="Done" onEditTask={setEditingTask} onAddTask={() => setIsCreatingTask('done')} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
+                        <Column status="blocked" title="Blocked" onEditTask={setEditingTask} onAddTask={canEdit ? () => setIsCreatingTask('blocked') : undefined} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
+                        <Column status="done" title="Done" onEditTask={setEditingTask} onAddTask={canEdit ? () => setIsCreatingTask('done') : undefined} searchQuery={searchQuery} filterUsers={selectedUserEmails} />
                     </div>
                 </main>
 
@@ -492,36 +615,55 @@ export const Board: React.FC = () => {
                 </DragOverlay>
 
                 {/* Edit Existing Task */}
-                {editingTask && (
-                    <TaskModal
-                        task={editingTask}
-                        projectMembers={project.members} // Pass members for assignment
-                        onClose={() => setEditingTask(null)}
-                        onSave={updateTask}
-                        onDelete={deleteTask}
-                    />
-                )}
+                {
+                    editingTask && (
+                        <TaskModal
+                            task={editingTask}
+                            projectMembers={project.members} // Pass members for assignment
+                            onClose={() => setEditingTask(null)}
+                            onSave={updateTask}
+                            onDelete={deleteTask}
+                            canEdit={canEdit}
+                        />
+                    )
+                }
 
                 {/* Create New Task */}
-                {isCreatingTask && (
-                    <TaskModal
-                        isCreating={true}
-                        initialStatus={isCreatingTask}
-                        projectMembers={project.members}
-                        task={createTask('', user || undefined, isCreatingTask)} // Dummy empty task
-                        onClose={() => setIsCreatingTask(null)}
-                        onSave={(_, updates) => handleCreateTask(updates)} // We handle creation differently
-                        onDelete={() => { }} // No delete in create mode
-                    />
-                )}
+                {
+                    isCreatingTask && (
+                        <TaskModal
+                            isCreating={true}
+                            initialStatus={isCreatingTask}
+                            projectMembers={project.members}
+                            task={createTask('', user || undefined, isCreatingTask)} // Dummy empty task
+                            onClose={() => setIsCreatingTask(null)}
+                            onSave={(_, updates) => handleCreateTask(updates)} // We handle creation differently
+                            onDelete={() => { }} // No delete in create mode
+                            canEdit={canEdit}
+                        />
+                    )
+                }
 
-                {showMemberModal && (
-                    <AddMemberModal
-                        onClose={() => setShowMemberModal(false)}
-                        onAdd={addMember}
-                    />
-                )}
-            </div>
-        </DndContext>
+                {
+                    showMemberModal && (
+                        <AddMemberModal
+                            onClose={() => setShowMemberModal(false)}
+                            onAdd={addMember}
+                        />
+                    )
+                }
+
+                {
+                    availableProjects && (
+                        <ProjectSelectionModal
+                            projects={availableProjects}
+                            onSelect={selectProject}
+                            createNewProject={createNewProject}
+                            isFetchingNames={isFetchingNames}
+                        />
+                    )
+                }
+            </div >
+        </DndContext >
     );
 };
