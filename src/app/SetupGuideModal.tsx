@@ -1,109 +1,265 @@
-import React from 'react';
-import { X, ExternalLink, ShieldAlert, BadgeCheck, UploadCloud, Users } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, ExternalLink, ShieldAlert, BadgeCheck, UploadCloud, Users, ChevronRight, ChevronLeft, Globe, Key, Settings } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface SetupGuideModalProps {
     onClose: () => void;
 }
 
+interface TutorialStep {
+    title: string;
+    description: string;
+    icon: React.ReactNode;
+    image?: string;
+    details: string[];
+    tip?: string;
+    tipIcon?: React.ReactNode;
+}
+
+const TUTORIAL_STEPS: TutorialStep[] = [
+    {
+        title: "Create Google Cloud Project",
+        description: "Everything starts with a project to house your credentials.",
+        icon: <UploadCloud className="text-indigo-400" />,
+        image: "/images/tutorial/step1-create-project.jpg",
+        details: [
+            "Go to the Google Cloud Console.",
+            "Click on the 'Select a project' dropdown (top left).",
+            "Click 'New Project' and name it 'Execution Board'."
+        ]
+    },
+    {
+        title: "Enable Google Drive API",
+        description: "Grant the project permission to interact with your files.",
+        icon: <Globe className="text-emerald-400" />,
+        image: "/images/tutorial/step2-enable-api.JPG",
+        details: [
+            "Search for 'Google Drive API' in the search bar/library.",
+            "Click 'Enable' to activate it for your project."
+        ]
+    },
+    {
+        title: "Configure OAuth Consent",
+        description: "Define how users (you) will interact with the app.",
+        icon: <Settings className="text-blue-400" />,
+        image: "/images/tutorial/step3-oauth-consent.JPG",
+        details: [
+            "Go to 'Google Auth Platform' > 'Overview' > 'Create Branding'.",
+            "Select 'External' user type.",
+            "Fill in required info like App name and support email."
+        ]
+    },
+    {
+        title: "Create Credentials",
+        description: "Generate the actual ID used for authentication.",
+        icon: <Key className="text-purple-400" />,
+        image: "/images/tutorial/step4-credentials.JPG",
+        details: [
+            "Go to 'Google Auth Platform' > 'Clients' > 'Create Client'.",
+            "Choose 'Web application' as the Application type."
+        ]
+    },
+    {
+        title: "Origins & Redirects",
+        description: "Security rules to ensure only your app uses the ID.",
+        icon: <ShieldAlert className="text-red-400" />,
+        image: "/images/tutorial/step5-origins-redirects.JPG",
+        details: [
+            "Add 'http://localhost:3000' to 'Authorized JavaScript origins'.",
+            "Add 'http://localhost:3000' to 'Authorized redirect URIs'."
+        ],
+        tip: "If deploying to Vercel, add your production URL here too!",
+        tipIcon: <Globe size={16} />
+    },
+    {
+        title: "Add Test Users",
+        description: "While in 'Testing' mode, only specific users can login.",
+        icon: <Users className="text-orange-400" />,
+        image: "/images/tutorial/step6-test-users.JPG",
+        details: [
+            "Go back to 'Google Auth Platform' > 'Audience' tab.",
+            "Scroll down to 'Test users'.",
+            "Click 'Add Users' and enter your Gmail address.",
+            "Save and continue."
+        ],
+        tip: "Missing this step will cause 'Access Blocked' errors!",
+        tipIcon: <ShieldAlert size={16} />
+    },
+    {
+        title: "Save Your Client ID",
+        description: "The final piece of the puzzle.",
+        icon: <BadgeCheck className="text-indigo-400" />,
+        image: "/images/tutorial/step7-client-id.JPG",
+        details: [
+            "Click 'Create' to finish.",
+            "Copy the 'Client ID' string.",
+            "Paste it into the setup screen in this app."
+        ]
+    }
+];
+
 export const SetupGuideModal: React.FC<SetupGuideModalProps> = ({ onClose }) => {
+    const [currentStep, setCurrentStep] = useState(0);
+    const [direction, setDirection] = useState(0);
+
+    const step = TUTORIAL_STEPS[currentStep];
+
+    const paginate = (newDirection: number) => {
+        if (currentStep + newDirection >= 0 && currentStep + newDirection < TUTORIAL_STEPS.length) {
+            setDirection(newDirection);
+            setCurrentStep(currentStep + newDirection);
+        }
+    };
+
+    const variants = {
+        enter: (direction: number) => ({
+            x: direction > 0 ? 300 : -300,
+            opacity: 0
+        }),
+        center: {
+            zIndex: 1,
+            x: 0,
+            opacity: 1
+        },
+        exit: (direction: number) => ({
+            zIndex: 0,
+            x: direction < 0 ? 300 : -300,
+            opacity: 0
+        })
+    };
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-            <div className="w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
-                {/* Header */}
-                <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between sticky top-0 bg-zinc-900 rounded-t-2xl z-10">
-                    <div>
-                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                            <UploadCloud className="text-indigo-400" />
-                            Initial Setup Guide
-                        </h2>
-                        <p className="text-sm text-zinc-500">Configure Google Cloud to allow this app execution.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 overflow-y-auto">
+            <div className="w-full max-w-5xl bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl flex flex-col md:flex-row h-auto md:h-[650px] overflow-hidden">
+
+                {/* Visual/Image Section */}
+                <div className="w-full md:w-3/5 bg-zinc-900 flex items-center justify-center relative group overflow-hidden border-b md:border-b-0 md:border-r border-zinc-800">
+                    <AnimatePresence initial={false} custom={direction}>
+                        <motion.div
+                            key={currentStep}
+                            custom={direction}
+                            variants={variants}
+                            initial="enter"
+                            animate="center"
+                            exit="exit"
+                            transition={{
+                                x: { type: "spring", stiffness: 300, damping: 30 },
+                                opacity: { duration: 0.2 }
+                            }}
+                            className="absolute inset-0 flex items-center justify-center p-4 md:p-8"
+                        >
+                            <div className="w-full h-full relative rounded-xl overflow-hidden border border-zinc-800 shadow-2xl bg-zinc-950/50">
+                                {step.image ? (
+                                    <img
+                                        src={step.image}
+                                        alt={step.title}
+                                        className="w-full h-full object-contain"
+                                        onError={(e) => {
+                                            // Handle cases where extension might be mismatched
+                                            const target = e.target as HTMLImageElement;
+                                            if (target.src.endsWith('.JPG')) {
+                                                target.src = target.src.replace('.JPG', '.jpg');
+                                            } else if (target.src.endsWith('.jpg')) {
+                                                target.src = target.src.replace('.jpg', '.JPG');
+                                            }
+                                        }}
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex flex-col items-center justify-center text-zinc-600 gap-4">
+                                        <UploadCloud size={48} className="opacity-20" />
+                                        <p className="text-xs uppercase tracking-widest font-mono">No Image Available</p>
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    </AnimatePresence>
+                </div>
+
+                {/* Content Section */}
+                <div className="w-full md:w-2/5 flex flex-col bg-zinc-950 relative">
+                    {/* Header */}
+                    <div className="px-8 py-6 flex items-center justify-between border-b border-zinc-900">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-sm font-bold border border-indigo-500/30">
+                                {currentStep + 1}
+                            </div>
+                            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Step {currentStep + 1} of {TUTORIAL_STEPS.length}</span>
+                        </div>
+                        <button onClick={onClose} className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-900 rounded-full transition-colors">
+                            <X size={20} />
+                        </button>
                     </div>
-                    <button onClick={onClose} className="p-2 text-zinc-500 hover:text-white bg-zinc-800/50 hover:bg-zinc-800 rounded-full transition-colors">
-                        <X size={20} />
-                    </button>
-                </div>
 
-                {/* Content */}
-                <div className="p-6 space-y-8 overflow-y-auto custom-scrollbar">
+                    {/* Step Info */}
+                    <div className="flex-1 px-8 py-6 space-y-6 overflow-y-auto">
+                        <div className="space-y-2">
+                            <h3 className="text-2xl font-bold text-white leading-tight">
+                                {step.title}
+                            </h3>
+                            <p className="text-zinc-400 text-sm">
+                                {step.description}
+                            </p>
+                        </div>
 
-                    {/* Step 1 */}
-                    <section className="space-y-3">
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold border border-indigo-500/30">1</div>
-                            <h3 className="text-lg font-semibold text-zinc-200">Create Project & Enable Drive API</h3>
-                        </div>
-                        <div className="ml-11 text-zinc-400 text-sm space-y-2">
-                            <p>Go to the <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline inline-flex items-center gap-1">Google Cloud Console <ExternalLink size={12} /></a>.</p>
-                            <ul className="list-disc pl-4 space-y-1">
-                                <li>Create a <strong>New Project</strong> (e.g., "Execution Board").</li>
-                                <li>Search for <strong>"Google Drive API"</strong> in the library and <strong>Enable</strong> it.</li>
-                            </ul>
-                        </div>
-                    </section>
-
-                    {/* Step 2 */}
-                    <section className="space-y-3">
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold border border-indigo-500/30">2</div>
-                            <h3 className="text-lg font-semibold text-zinc-200">Configure OAuth Screen</h3>
-                        </div>
-                        <div className="ml-11 text-zinc-400 text-sm space-y-2">
-                            <p>Go to <strong>APIs & Services {'>'} OAuth consent screen</strong>.</p>
-                            <ul className="list-disc pl-4 space-y-1">
-                                <li>Select <strong>External</strong> (unless you have a Workspace).</li>
-                                <li>Fill in required fields (App Name, Email).</li>
-                                <li><strong>Important:</strong> Add your email to <strong>Test Users</strong>.</li>
-                            </ul>
-                            <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex gap-3 text-yellow-500 text-xs mt-2">
-                                <Users size={16} className="shrink-0" />
-                                <span>If you see "Access Blocked" or "Unverified App", it means you forgot to add yourself as a Test User!</span>
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* Step 3 */}
-                    <section className="space-y-3">
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold border border-indigo-500/30">3</div>
-                            <h3 className="text-lg font-semibold text-zinc-200">Create Credentials</h3>
-                        </div>
-                        <div className="ml-11 text-zinc-400 text-sm space-y-2">
-                            <p>Go to <strong>Credentials {'>'} Create Credentials {'>'} OAuth client ID</strong>.</p>
-                            <ul className="list-disc pl-4 space-y-1">
-                                <li>Application Type: <strong>Web application</strong>.</li>
-                                <li>Authorized JavaScript origins:
-                                    <div className="mt-1 p-2 bg-black rounded border border-zinc-800 font-mono text-xs text-indigo-300">
-                                        http://localhost:3000
-                                    </div>
-                                </li>
-                                <li>Authorized redirect URIs:
-                                    <div className="mt-1 p-2 bg-black rounded border border-zinc-800 font-mono text-xs text-indigo-300">
-                                        http://localhost:3000
-                                    </div>
-                                </li>
-                                <li>Click <strong>Create</strong> and copy the <strong>Client ID</strong>.</li>
-                            </ul>
-                            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex gap-3 text-red-400 text-xs mt-2">
-                                <ShieldAlert size={16} className="shrink-0" />
-                                <div>
-                                    <p className="font-semibold">Deployment Tip:</p>
-                                    <p>If deploying to Vercel, remember to add your production URL (e.g., <code>https://your-app.vercel.app</code>) to both Origins and Redirect URIs above!</p>
+                        <div className="space-y-3">
+                            {step.details.map((detail, idx) => (
+                                <div key={idx} className="flex gap-3 text-sm text-zinc-300">
+                                    <div className="shrink-0 w-1.5 h-1.5 rounded-full bg-indigo-500/40 mt-1.5" />
+                                    <p dangerouslySetInnerHTML={{ __html: detail.replace(/'([^']*)'/g, '<strong>$1</strong>') }} />
                                 </div>
-                            </div>
+                            ))}
                         </div>
-                    </section>
 
-                </div>
+                        {step.tip && (
+                            <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl flex gap-3 text-amber-200/80 text-xs">
+                                <div className="shrink-0 text-amber-500">
+                                    {step.tipIcon || <ShieldAlert size={16} />}
+                                </div>
+                                <span>{step.tip}</span>
+                            </div>
+                        )}
+                    </div>
 
-                {/* Footer */}
-                <div className="p-6 border-t border-zinc-800 bg-zinc-900/50 rounded-b-2xl">
-                    <button
-                        onClick={onClose}
-                        className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
-                    >
-                        <BadgeCheck size={18} />
-                        I Have Configured It
-                    </button>
+                    {/* Navigation */}
+                    <div className="px-8 py-6 border-t border-zinc-900 bg-zinc-950 flex items-center gap-3">
+                        {currentStep > 0 && (
+                            <button
+                                onClick={() => paginate(-1)}
+                                className="flex-1 py-3 px-4 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-semibold rounded-xl transition-all border border-zinc-800 flex items-center justify-center gap-2"
+                            >
+                                <ChevronLeft size={18} />
+                                Back
+                            </button>
+                        )}
+
+                        {currentStep < TUTORIAL_STEPS.length - 1 ? (
+                            <button
+                                onClick={() => paginate(1)}
+                                className="flex-[2] py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2"
+                            >
+                                Next Step
+                                <ChevronRight size={18} />
+                            </button>
+                        ) : (
+                            <button
+                                onClick={onClose}
+                                className="flex-[2] py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                            >
+                                <BadgeCheck size={18} />
+                                I'm Ready!
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-zinc-900">
+                        <motion.div
+                            className="h-full bg-indigo-600"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${((currentStep + 1) / TUTORIAL_STEPS.length) * 100}%` }}
+                            transition={{ duration: 0.3 }}
+                        />
+                    </div>
                 </div>
             </div>
         </div>
