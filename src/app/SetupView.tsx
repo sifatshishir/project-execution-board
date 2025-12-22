@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useSettingsStore } from '@/features/settings/store';
-import { KeyRound, ShieldCheck, HelpCircle, BookOpen } from 'lucide-react';
+import { KeyRound, ShieldCheck, HelpCircle, BookOpen, Info } from 'lucide-react';
 import { SetupGuideModal } from './SetupGuideModal';
+import { ProjectInfoSlideOver } from './ProjectInfoSlideOver';
 
 export const SetupView = () => {
     const [clientId, setClientId] = useState('');
     const [showGuide, setShowGuide] = useState(false);
+    const [showInfo, setShowInfo] = useState(false);
     const setGoogleClientId = useSettingsStore((state) => state.setGoogleClientId);
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -16,10 +18,11 @@ export const SetupView = () => {
     };
 
     return (
-        <div className="h-screen w-full flex items-center justify-center bg-background text-foreground transition-colors duration-300">
+        <div className="h-screen w-full flex items-center justify-center bg-background text-foreground transition-colors duration-300 relative overflow-hidden">
             {showGuide && <SetupGuideModal onClose={() => setShowGuide(false)} />}
+            <ProjectInfoSlideOver isOpen={showInfo} onClose={() => setShowInfo(false)} />
 
-            <div className="max-w-xl w-full p-8 flex flex-col gap-6 rounded-2xl bg-card border border-border shadow-2xl">
+            <div className="max-w-xl w-full p-8 flex flex-col gap-6 rounded-2xl bg-card border border-border shadow-2xl relative z-10">
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-4">
                         <div className="p-3 rounded-lg bg-primary/10 text-primary">
@@ -30,16 +33,26 @@ export const SetupView = () => {
                             <p className="text-muted-foreground">Connect to your Google Workspace</p>
                         </div>
                     </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
                     <button
                         onClick={() => setShowGuide(true)}
-                        className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 rounded-full hover:bg-emerald-500/20 transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 rounded-xl hover:bg-emerald-500/20 transition-all flex-1"
                     >
-                        <BookOpen size={14} />
+                        <BookOpen size={16} />
                         Step-by-Step Guide
+                    </button>
+                    <button
+                        onClick={() => setShowInfo(true)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary bg-primary/10 border border-primary/20 rounded-xl hover:bg-primary/20 transition-all flex-1"
+                    >
+                        <Info size={16} />
+                        Why This App?
                     </button>
                 </div>
 
-                <div className="p-4 rounded-lg bg-secondary/50 border border-border text-sm text-muted-foreground space-y-3">
+                <div className="p-4 rounded-xl bg-secondary/50 border border-border text-sm text-muted-foreground space-y-3">
                     <p className="flex gap-2">
                         <HelpCircle size={16} className="shrink-0 mt-0.5" />
                         <span>
