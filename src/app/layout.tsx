@@ -18,6 +18,7 @@ export const metadata: Metadata = {
 };
 
 import { ThemeProvider } from "./providers";
+import { SessionExpiredToast } from "./SessionExpiredToast";
 
 export default function RootLayout({
   children,
@@ -31,6 +32,7 @@ export default function RootLayout({
       >
         <script src="https://accounts.google.com/gsi/client" async defer></script>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <SessionExpiredToast />
           {children}
         </ThemeProvider>
       </body>

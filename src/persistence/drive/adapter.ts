@@ -29,6 +29,9 @@ export class DriveAdapter implements StorageAdapter {
             });
 
             if (!res.ok) {
+                if (res.status === 401) {
+                    throw new Error('AUTH_EXPIRED');
+                }
                 console.error('DriveAdapter: listProjects fetched failed', res.status);
                 return [];
             }
@@ -144,7 +147,12 @@ export class DriveAdapter implements StorageAdapter {
                 headers: { Authorization: `Bearer ${this.accessToken}` },
             });
 
-            if (!res.ok) return null;
+            if (!res.ok) {
+                if (res.status === 401) {
+                    throw new Error('AUTH_EXPIRED');
+                }
+                return null;
+            }
             const project = await res.json();
             return { ...project, canEdit };
         } catch (e) {
@@ -173,6 +181,9 @@ export class DriveAdapter implements StorageAdapter {
 
         if (!res.ok) {
             const error = await res.json();
+            if (res.status === 401 || error.error?.code === 401) {
+                throw new Error('AUTH_EXPIRED');
+            }
             throw new Error(`Upload failed: ${JSON.stringify(error)}`);
         }
 
@@ -198,6 +209,10 @@ export class DriveAdapter implements StorageAdapter {
             });
             if (!res.ok) {
                 const error = await res.json().catch(() => ({ message: 'Unknown error' }));
+                // Check for auth errors
+                if (res.status === 401 || error.error?.code === 401) {
+                    throw new Error('AUTH_EXPIRED');
+                }
                 throw new Error(`Update failed: ${JSON.stringify(error)}`);
             }
             return forceFileId;
@@ -224,6 +239,10 @@ export class DriveAdapter implements StorageAdapter {
                 return data.id;
             } else {
                 const error = await res.json().catch(() => ({ message: 'Unknown error' }));
+                // Check for auth errors
+                if (res.status === 401 || error.error?.code === 401) {
+                    throw new Error('AUTH_EXPIRED');
+                }
                 throw new Error(`Creation failed: ${JSON.stringify(error)}`);
             }
         }
@@ -237,7 +256,12 @@ export class DriveAdapter implements StorageAdapter {
                 headers: { Authorization: `Bearer ${this.accessToken}` },
             });
 
-            if (!res.ok) return [];
+            if (!res.ok) {
+                if (res.status === 401) {
+                    throw new Error('AUTH_EXPIRED');
+                }
+                return [];
+            }
 
             const data = await res.json();
             const permissions = data.permissions || [];

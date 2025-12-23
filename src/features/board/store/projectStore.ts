@@ -47,7 +47,16 @@ const debouncedSave = debounce(async (project: Project, fileId: string | null) =
         useProjectStore.setState({ isSyncing: false, lastSync: Date.now() });
     } catch (error) {
         console.error('Auto-save failed', error);
-        useProjectStore.setState({ isSyncing: false });
+
+        // Check if it's an authentication error
+        if (error instanceof Error && error.message === 'AUTH_EXPIRED') {
+            console.warn('Authentication expired. User needs to re-login.');
+            // Clear the auth state to trigger re-login
+            useAuthStore.getState().logout();
+            useProjectStore.setState({ isSyncing: false });
+        } else {
+            useProjectStore.setState({ isSyncing: false });
+        }
     }
 }, 1000);
 
@@ -175,6 +184,12 @@ export const useProjectStore = create<ProjectState>()(
                     }
                 } catch (e) {
                     console.error('Drive sync failed', e);
+                    // Check for auth expiration
+                    if (e instanceof Error && e.message === 'AUTH_EXPIRED') {
+                        console.warn('Authentication expired during sync. Logging out.');
+                        useAuthStore.getState().logout();
+                        set({ isSyncing: false, isLoading: false });
+                    }
                 } finally {
                     set({ isSyncing: false, isLoading: false });
                 }
@@ -201,6 +216,11 @@ export const useProjectStore = create<ProjectState>()(
                     }
                 } catch (e) {
                     console.error('Project selection failed', e);
+                    // Check for auth expiration
+                    if (e instanceof Error && e.message === 'AUTH_EXPIRED') {
+                        console.warn('Authentication expired during project selection. Logging out.');
+                        useAuthStore.getState().logout();
+                    }
                 } finally {
                     set({ isSyncing: false, isLoading: false });
                 }
@@ -378,6 +398,11 @@ export const useProjectStore = create<ProjectState>()(
                     });
                 } catch (e) {
                     console.error('Failed to sync members from drive', e);
+                    // Check for auth expiration
+                    if (e instanceof Error && e.message === 'AUTH_EXPIRED') {
+                        console.warn('Authentication expired during member sync. Logging out.');
+                        useAuthStore.getState().logout();
+                    }
                     set({ isSyncing: false });
                 }
             },
@@ -414,6 +439,11 @@ export const useProjectStore = create<ProjectState>()(
                     });
                 } catch (e) {
                     console.error('Failed to update logo', e);
+                    // Check for auth expiration
+                    if (e instanceof Error && e.message === 'AUTH_EXPIRED') {
+                        console.warn('Authentication expired during logo upload. Logging out.');
+                        useAuthStore.getState().logout();
+                    }
                     set({ isSyncing: false });
                 }
             },
